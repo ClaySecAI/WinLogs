@@ -13,7 +13,7 @@ See also: [Windows](logged-windows.md) · [Linux](logged-linux.md) · [overview]
 | Application firewall logging | `socketfilterfw --setloggingmode on` (previous mode restored on revert) | unified log / `/var/log/appfirewall.log` on older releases |
 | Unified log snapshots (opt-in, `--with-log-archive`) | Daily `log collect --last 1d`, pruned after `--keep-days` (default 7) | `/var/log/winlogs/unified-YYYY-MM-DD.logarchive` |
 
-Event types recorded (those this macOS supports; the list is checked against `eslogger --list-events` at install time): process exec, file create/unlink/rename, mount, kext load, background-item (persistence) add/remove, XProtect malware detected/remediated, logins (local, ssh, screen sharing), sudo/su, profile install/remove, Gatekeeper overrides, TCC changes, remote thread creation, code-signature invalidation, and local account/group changes.
+Event types recorded (those this macOS supports; the list is checked against `eslogger --list-events` at install time): process exec, file create/unlink/rename, mount, kext load, background-item (persistence) add/remove, XProtect malware detected/remediated, logins (local, ssh, screen sharing), sudo/su, profile install/remove, Gatekeeper overrides, TCC changes, remote thread creation, code-signature invalidation, local account/group changes, file permission, ownership, flag, ACL and extended-attribute changes, hard links, clones and copies, system time changes, ptrace, task-port access (`get_task`), process suspend/resume, and authorization decisions.
 
 ## One manual step: Full Disk Access
 

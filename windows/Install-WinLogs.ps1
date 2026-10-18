@@ -161,6 +161,9 @@ function Confirm-Lab {
 
 # --- audit helpers ----------------------------------------------------------------------------
 
+# Per-object rules audit failed attempts too (access denied on a persistence key is a signal).
+$AuditRuleFlags = 'Success, Failure'
+
 function Resolve-AuditProfile {
     if ($AuditProfile -ne 'Auto') { return $AuditProfile }
     # ProductType: 1 = workstation (Windows 10/11), 2 = domain controller, 3 = server
@@ -168,11 +171,11 @@ function Resolve-AuditProfile {
     return 'Server'
 }
 
-function New-AuditRule([string]$Kind, [string]$Rights, [string]$Inherit) {
+function New-AuditRule([string]$Kind, [string]$Rights, [string]$Inherit, [string]$Flags = 'Success') {
     $everyone = New-Object Security.Principal.SecurityIdentifier('S-1-1-0')
     $inh  = [Security.AccessControl.InheritanceFlags]$Inherit
     $prop = [Security.AccessControl.PropagationFlags]::None
-    $flag = [Security.AccessControl.AuditFlags]::Success
+    $flag = [Security.AccessControl.AuditFlags]$Flags
     if ($Kind -eq 'Registry') {
         return New-Object Security.AccessControl.RegistryAuditRule($everyone, [Security.AccessControl.RegistryRights]$Rights, $inh, $prop, $flag)
     }
@@ -202,10 +205,10 @@ function Add-ObjectAudit($State, [string]$Kind, [string]$Path, [string]$Rights, 
     if (-not (Test-Path -LiteralPath $Path)) { Write-Verbose "Audit target not present, skipping: $Path"; return }
     if ($PSCmdlet.ShouldProcess($Path, "Add audit rule ($Rights)")) {
         try {
-            $rule = New-AuditRule $Kind $Rights $Inherit
+            $rule = New-AuditRule $Kind $Rights $Inherit $AuditRuleFlags
             Edit-ObjectAudit $Kind $Path { param($sec) $sec.AddAuditRule($rule) }
             if (-not (@($State.sacls) | Where-Object { $_.path -eq $Path -and $_.rights -eq $Rights })) {
-                $State.sacls += [ordered]@{ kind = $Kind; path = $Path; rights = $Rights; inherit = $Inherit }
+                $State.sacls += [ordered]@{ kind = $Kind; path = $Path; rights = $Rights; inherit = $Inherit; flags = $AuditRuleFlags }
             }
         } catch { Write-Warn "Could not set audit rule on '$Path': $($_.Exception.Message)" }
     }
@@ -215,7 +218,9 @@ function Remove-ObjectAudit($Entry) {
     if (-not (Test-Path -LiteralPath $Entry.path)) { return }
     if ($PSCmdlet.ShouldProcess($Entry.path, 'Remove audit rule')) {
         try {
-            $rule = New-AuditRule $Entry.kind $Entry.rights $Entry.inherit
+            # State files from earlier versions have no 'flags' (those rules audited Success only).
+            $flags = if ($Entry.PSObject.Properties['flags']) { $Entry.flags } else { 'Success' }
+            $rule = New-AuditRule $Entry.kind $Entry.rights $Entry.inherit $flags
             Edit-ObjectAudit $Entry.kind $Entry.path { param($sec) [void]$sec.RemoveAuditRuleSpecific($rule) }
         } catch { Write-Warn "Could not remove audit rule from '$($Entry.path)': $($_.Exception.Message)" }
     }
@@ -489,7 +494,18 @@ $medium = 'System', 'Application',
     'Microsoft-Windows-AppLocker/MSI and Script',
     'Microsoft-Windows-AppLocker/Packaged app-Deployment',
     'Microsoft-Windows-AppLocker/Packaged app-Execution',
-    'Microsoft-Windows-Diagnosis-Scripted/Operational'
+    'Microsoft-Windows-Diagnosis-Scripted/Operational',
+    'Microsoft-Windows-WinRM/Operational',
+    'Microsoft-Windows-TerminalServices-RDPClient/Operational',
+    'Microsoft-Windows-RemoteDesktopServices-RdpCoreTS/Operational',
+    'Microsoft-Windows-LSA/Operational',
+    'Microsoft-Windows-DeviceGuard/Operational',
+    'Microsoft-Windows-Security-Netlogon/Operational',
+    'Microsoft-Windows-SMBServer/Security',
+    'Microsoft-Windows-SMBServer/Operational',
+    'Microsoft-Windows-Shell-Core/Operational',
+    'Microsoft-Windows-AppXDeploymentServer/Operational',
+    'Microsoft-Windows-Winlogon/Operational'
 if ($profileName -eq 'Server') {
     # Present only when the role is installed; Set-TrackedLog skips channels that do not exist.
     $medium += 'Directory Service', 'DNS Server', 'Microsoft-Windows-DNSServer/Audit', 'DFS Replication'
@@ -499,6 +515,16 @@ foreach ($n in $medium) { Set-TrackedLog $state $n ([math]::Min(256, $LogSizeMB)
 foreach ($n in 'Microsoft-Windows-TaskScheduler/Operational', 'Microsoft-Windows-DNS-Client/Operational',
     'Microsoft-Windows-DriverFrameworks-UserMode/Operational') {
     Set-TrackedLog $state $n ([math]::Min(256, $LogSizeMB)) $true
+}
+
+# Event Log policy values override the per-channel setting, so a policy refresh could shrink the logs we just
+# sized. Writing the policy value keeps the size (and lets compliance scanners that read it see it).
+foreach ($n in 'Security', 'System', 'Application') {
+    $want = if ($n -eq 'Security') { $LogSizeMB } else { [math]::Min(256, $LogSizeMB) }
+    $cur = 0
+    try { $cur = [int64]((Get-WinEvent -ListLog $n -ErrorAction Stop).MaximumSizeInBytes / 1KB) } catch { }
+    $kb = [int64][math]::Max($cur, [int64]$want * 1024)
+    Set-TrackedValue $state "HKLM:\SOFTWARE\Policies\Microsoft\Windows\EventLog\$n" 'MaxSize' $kb
 }
 
 Save-State $state

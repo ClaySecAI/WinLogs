@@ -32,7 +32,9 @@ check "SHA256SUMS written" test -s /tmp/winlogs-offline/SHA256SUMS
 echo "== install (offline)"
 runq ./linux/install.sh --yes --offline-dir /tmp/winlogs-offline
 check "audit rules file installed"  test -s /etc/audit/rules.d/90-winlogs.rules
-if [ "$LIVE" = 1 ]; then check "audit rules loaded in kernel" rules_loaded; else skip "audit rules loaded in kernel"; fi
+check "extra rules file installed"  test -s /etc/audit/rules.d/91-winlogs-extra.rules
+check "enable rule file installed"  test -s /etc/audit/rules.d/99-winlogs-enable.rules
+if [ "$LIVE" = 1 ]; then check "audit rules loaded in kernel" rules_loaded; check "extra execpriv rules loaded" bash -c "auditctl -l | grep -q execpriv"; else skip "audit rules loaded in kernel"; fi
 check "auditd.conf retention raised" grep -q '^max_log_file = 200' /etc/audit/auditd.conf
 check "journald drop-in present"    test -s /etc/systemd/journald.conf.d/90-winlogs.conf
 if [ "$LIVE" = 1 ]; then check "journald is persistent" test -d /var/log/journal; else skip "journald is persistent"; fi
@@ -57,6 +59,8 @@ check "second run kept one backup of auditd.conf" test "$(grep -c '^backup /etc/
 echo "== revert"
 runq ./linux/install.sh --yes --revert
 check "rules file removed"     test ! -e /etc/audit/rules.d/90-winlogs.rules
+check "extra rules file removed" test ! -e /etc/audit/rules.d/91-winlogs-extra.rules
+check "enable rule file removed" test ! -e /etc/audit/rules.d/99-winlogs-enable.rules
 check "journald drop-in gone"  test ! -e /etc/systemd/journald.conf.d/90-winlogs.conf
 check "profile hook gone"      test ! -e /etc/profile.d/winlogs-cmdlog.sh
 check "state dir removed"      test ! -d /var/lib/winlogs
