@@ -43,7 +43,7 @@ sudo ./macos/install.sh --revert         # undo
 | Object auditing | Per-object audit rules (SACLs) on persistence and tamper-prone registry keys and folders | n/a (covered by `auditd` watches) | n/a (covered by `eslogger` file events) |
 | Undo | `-Revert` | `--revert` | `--revert` |
 
-Per-OS details, event IDs and limits: [Windows](docs/logged-windows.md) · [Linux](docs/logged-linux.md) · [macOS](docs/logged-macos.md) · [side-by-side overview](docs/what-gets-logged.md).
+Per-OS details, event IDs and limits: [Windows](docs/logged-windows.md) · [Linux](docs/logged-linux.md) · [macOS](docs/logged-macos.md) · [side-by-side overview](docs/what-gets-logged.md) · [comparison with STIG and CIS](docs/baseline-comparison.md).
 
 ## Air-gapped labs
 

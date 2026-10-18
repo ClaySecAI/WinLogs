@@ -49,6 +49,8 @@ $runKey    = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run'
 $startup   = Join-Path $env:ProgramData 'Microsoft\Windows\Start Menu\Programs\StartUp'
 $runSaclBefore     = Get-AuditRuleCount $runKey
 $startupSaclBefore = Get-AuditRuleCount $startup
+$polKey = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\EventLog\Security'
+$maxBefore = Reg $polKey 'MaxSize'
 $isServer = (Get-CimInstance Win32_OperatingSystem).ProductType -ne 1
 Write-Host "  (server profile expected: $isServer)"
 
@@ -70,6 +72,11 @@ Check 'PowerShell 7 policy mirrored' ((Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Po
 Check 'Process Creation audited (Success)' ((Audit 'Process Creation') -match 'Success')
 Check 'Security log >= 1 GB'        ((Get-WinEvent -ListLog Security).MaximumSizeInBytes -ge 1GB)
 Check 'Group Membership audited'    ((Audit 'Group Membership') -match 'Success')
+Check 'Other System Events: Success and Failure' ((Audit 'Other System Events') -match 'Success and Failure')
+Check 'Account Lockout: Success and Failure'    ((Audit 'Account Lockout') -match 'Success and Failure')
+Check 'File System: Success and Failure'         ((Audit 'File System') -match 'Success and Failure')
+Check 'Registry: Success and Failure'            ((Audit 'Registry') -match 'Success and Failure')
+Check 'Event Log policy MaxSize set (Security, >= 1 GiB)' ((Reg $polKey 'MaxSize') -ge 1048576)
 Check 'SAM audited (Success and Failure)' ((Audit 'SAM') -match 'Success and Failure')
 if ($isServer) {
     Check 'Kerberos Service Ticket audited (server overlay)' ((Audit 'Kerberos Service Ticket Operations') -match 'Success and Failure')
@@ -130,6 +137,7 @@ Check 'state.json removed'        (-not (Test-Path $state))
 Check 'cmdline auditing restored' ((Reg $cmdKey 'ProcessCreationIncludeCmdLine_Enabled') -eq $before)
 Check 'PowerShell policy removed' ($null -eq (Reg "$psw\ScriptBlockLogging" 'EnableScriptBlockLogging'))
 Check 'audit policy restored'     ((Audit 'Process Creation') -eq $auditBefore)
+Check 'Event Log policy MaxSize restored' ((Reg $polKey 'MaxSize') -eq $maxBefore)
 Check 'Run key SACL removed'      ((Get-AuditRuleCount $runKey) -eq $runSaclBefore)
 Check 'StartUp SACL removed'      ((Get-AuditRuleCount $startup) -eq $startupSaclBefore)
 Check 'Sysmon service removed'    ($null -eq (Get-Service -Name 'Sysmon*' -ErrorAction SilentlyContinue))

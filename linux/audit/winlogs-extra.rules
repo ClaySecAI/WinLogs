@@ -1,0 +1,16 @@
+# WinLogs extra audit rules, loaded after the Neo23x0 set (91-winlogs-extra.rules).
+# Fills the few gaps left by the bundled ruleset: privileged-execution keys and the password-history file.
+# "auid>=1000" is replaced with the host's UID_MIN at install time, like the main ruleset.
+
+## Password history
+-w /etc/security/opasswd -p wa -k etcpasswd
+
+## Executions that change privilege: setuid/setgid binaries running as root
+-a always,exit -F arch=b64 -S execve -S execveat -C uid!=euid -F euid=0 -k execpriv
+-a always,exit -F arch=b32 -S execve -S execveat -C uid!=euid -F euid=0 -k execpriv
+-a always,exit -F arch=b64 -S execve -S execveat -C gid!=egid -F egid=0 -k execpriv
+-a always,exit -F arch=b32 -S execve -S execveat -C gid!=egid -F egid=0 -k execpriv
+
+## A logged-in human running something as root (sudo, su, pkexec, setuid)
+-a always,exit -F arch=b64 -S execve -S execveat -F euid=0 -F auid>=1000 -F auid!=unset -k exec_as_root
+-a always,exit -F arch=b32 -S execve -S execveat -F euid=0 -F auid>=1000 -F auid!=unset -k exec_as_root

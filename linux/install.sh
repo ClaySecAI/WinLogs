@@ -15,6 +15,8 @@ STATE_DIR=/var/lib/winlogs
 BACKUP_DIR="$STATE_DIR/backup"
 MANIFEST="$STATE_DIR/manifest"          # lines: "created <path>" | "backup <path>" | "pkg <name>"
 RULES_DST=/etc/audit/rules.d/90-winlogs.rules
+EXTRA_DST=/etc/audit/rules.d/91-winlogs-extra.rules
+ENABLE_DST=/etc/audit/rules.d/99-winlogs-enable.rules
 JOURNAL_DROPIN=/etc/systemd/journald.conf.d/90-winlogs.conf
 PROFILE_DST=/etc/profile.d/winlogs-cmdlog.sh
 AUDITD_CONF=/etc/audit/auditd.conf
@@ -118,11 +120,17 @@ install_audit_rules() {
     uid_min="${uid_min:-1000}"
     [ -d "$(dirname "$RULES_DST")" ] || run mkdir -p "$(dirname "$RULES_DST")"
     claim "$RULES_DST"
-    if [ "$DRY" = 1 ]; then echo "    (dry-run) write $RULES_DST (UID_MIN=$uid_min)"; return; fi
+    if [ "$DRY" = 1 ]; then echo "    (dry-run) write $RULES_DST, $EXTRA_DST, $ENABLE_DST (UID_MIN=$uid_min)"; return; fi
     sed "s/auid>=1000/auid>=$uid_min/g" "$HERE/audit/neo23x0-audit.rules" > "$RULES_DST"
-    # Some kernels boot with audit disabled; make sure it is switched on after the rules load.
-    printf '\n# WinLogs: make sure auditing is enabled\n-e 1\n' >> "$RULES_DST"
     chmod 640 "$RULES_DST"
+    # Extra rules go in a later file: augenrules concatenates in name order and 90's "-D" would delete them.
+    claim "$EXTRA_DST"
+    sed "s/auid>=1000/auid>=$uid_min/g" "$HERE/audit/winlogs-extra.rules" > "$EXTRA_DST"
+    chmod 640 "$EXTRA_DST"
+    # Some kernels boot with audit disabled; make sure it is switched on after the rules load.
+    claim "$ENABLE_DST"
+    printf '# WinLogs: make sure auditing is enabled\n-e 1\n' > "$ENABLE_DST"
+    chmod 640 "$ENABLE_DST"
 
     # Keep more audit history than the distro default.
     if [ -f "$AUDITD_CONF" ]; then

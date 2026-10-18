@@ -8,7 +8,7 @@ See also: [Windows](logged-windows.md) · [macOS](logged-macos.md) · [overview]
 
 | Piece | How | Where to look |
 |---|---|---|
-| Audit rules | `auditd` plus the [Neo23x0 ruleset](https://github.com/Neo23x0/auditd) (Apache-2.0), installed as `/etc/audit/rules.d/90-winlogs.rules`; `UID_MIN` is read from `/etc/login.defs` | `ausearch -k <key>`, `/var/log/audit/audit.log` |
+| Audit rules | `auditd` plus the [Neo23x0 ruleset](https://github.com/Neo23x0/auditd) (Apache-2.0), installed as `/etc/audit/rules.d/90-winlogs.rules` (plus `91-` extras and a `99-` enable file); `UID_MIN` is read from `/etc/login.defs` | `ausearch -k <key>`, `/var/log/audit/audit.log` |
 | Audit retention | `max_log_file = 200` (MB), `num_logs = 10`, rotate, `flush = SYNC` so events hit disk immediately | `/etc/audit/auditd.conf` |
 | journald | Persistent storage (`/var/log/journal`), `SystemMaxUse` 2G by default (`--journal-size`), rate limiting off so bursts are not dropped | `journalctl`, `/etc/systemd/journald.conf.d/90-winlogs.conf` |
 | Shell commands | Interactive bash commands logged to syslog, facility `local6`, tag `winlogs-cmd` (`--no-shell-logging` skips it) | `journalctl -t winlogs-cmd` or `/var/log/syslog` |
@@ -27,6 +27,8 @@ Rule keys in the Neo23x0 set, grouped. Use them with `ausearch -k <key>`.
 - **Network:** `network_socket_created`, `raw_network_socket_created`, `network_modifications`, `firewall`, `network`
 - **Containers:** `docker`, `containers`
 - **Package and software changes:** `software_mgmt`
+
+WinLogs adds `linux/audit/winlogs-extra.rules` (installed as `91-winlogs-extra.rules`): the password-history file, `execpriv` (setuid/setgid binaries running as root) and `exec_as_root` (a logged-in human running something as root). A third file, `99-winlogs-enable.rules`, switches auditing on.
 
 The ruleset is broad on purpose. If volume is a problem, comment out `process_creation` or the `file_*` rules in `/etc/audit/rules.d/90-winlogs.rules` and run `sudo augenrules --load`.
 

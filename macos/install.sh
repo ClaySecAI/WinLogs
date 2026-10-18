@@ -42,7 +42,9 @@ WANTED_EVENTS="exec create unlink rename mount kextload btm_launch_item_add btm_
 xp_malware_detected xp_malware_remediated login_login login_logout lw_session_login lw_session_logout \
 sudo su openssh_login openssh_logout screensharing_attach screensharing_detach profile_add profile_remove \
 authentication gatekeeper_user_override tcc_modify remote_thread_create cs_invalidated \
-od_create_user od_delete_user od_modify_password od_group_add od_group_remove od_group_set"
+od_create_user od_delete_user od_modify_password od_group_add od_group_remove od_group_set \
+setmode setowner setflags setacl setextattr deleteextattr link clone copyfile exchangedata settime \
+trace proc_suspend_resume get_task get_task_read get_task_inspect authorization_judgement"
 
 usage() { sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; echo "Options: --yes --dry-run --revert --no-shell-logging --with-log-archive --keep-days N --es-max-mb N"; }
 
